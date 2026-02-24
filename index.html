@@ -573,14 +573,14 @@ const areaEl  = document.getElementById('calcArea');
 
 DRUGS.forEach((drug, i) => {
   const btn = document.createElement('button');
-  btn.className = 'drug-btn' + (i === 0 ? ' active' : '');
+  btn.className = 'drug-btn' + (drug.id === 'noradrenaline' ? ' active' : '');
   btn.dataset.id = drug.id;
   btn.innerHTML = `<span class="db-name">${drug.name}</span><span class="db-class">${drug.class}</span>`;
   btn.addEventListener('click', () => activate(drug.id));
   gridEl.appendChild(btn);
 
   const wrap = document.createElement('div');
-  wrap.className = 'calc-wrap' + (i === 0 ? ' active' : '');
+  wrap.className = 'calc-wrap' + (drug.id === 'noradrenaline' ? ' active' : '');
   wrap.id = 'wrap-' + drug.id;
   wrap.innerHTML = buildHTML(drug);
   areaEl.appendChild(wrap);
