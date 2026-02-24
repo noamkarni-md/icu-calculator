@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICU Drug Dose Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14;
+    --surface: #0d1525;
+    --surface2: #111e33;
+    --surface3: #162540;
+    --border: #1c2e4a;
+    --border2: #243a5e;
+    --accent: #38bdf8;
+    --accent-dim: #0ea5e9;
+    --accent-glow: rgba(56,189,248,0.12);
+    --accent-glow2: rgba(56,189,248,0.05);
+    --text: #e2eaf6;
+    --text-muted: #5b7399;
+    --text-dim: #8aa4c8;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.07);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.025) 1px, transparent 1px);
+    background-size: 44px 44px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: sticky; top: 0; z-index: 200;
+    background: rgba(7,11,20,0.93);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 30px; height: 30px;
+    background: linear-gradient(135deg, rgba(56,189,248,0.2), rgba(14,165,233,0.1));
+    border: 1px solid rgba(56,189,248,0.3);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; line-height: 1;
+  }
+  .logo-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .logo-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+  .hbadge {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.7px;
+    padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+  }
+  .hb-blue { background: var(--accent-glow); border: 1px solid rgba(56,189,248,0.25); color: var(--accent); }
+  .hb-warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: var(--yellow); }
+
+  .page {
+    position: relative; z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 26px 20px 52px;
+  }
+
+  /* DRUG GRID */
+  .drug-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 7px;
+    margin-bottom: 22px;
+  }
+
+  .drug-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.16s;
+    color: var(--text-muted);
+  }
+  .drug-btn:hover { border-color: var(--border2); color: var(--text-dim); background: var(--surface2); }
+  .drug-btn.active { background: var(--accent-glow); border-color: var(--accent-dim); color: var(--accent); }
+  .drug-btn .db-name { font-size: 12px; font-weight: 600; display: block; }
+  .drug-btn .db-class { font-size: 10px; display: block; margin-top: 2px; opacity: 0.7; }
+  .drug-btn.active .db-class { opacity: 0.85; }
+
+  /* CALC LAYOUT */
+  .calc-wrap { display: none; }
+  .calc-wrap.active {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) {
+    .calc-wrap.active { grid-template-columns: 1fr; }
+    .drug-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  .panel-head {
+    padding: 13px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-head h2 { font-size: 13px; font-weight: 600; color: var(--text); }
+  .panel-head .ph-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+  .panel-body { padding: 16px 18px; flex: 1; display: flex; flex-direction: column; gap: 13px; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-size: 10px; font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  .input-wrap {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--bg);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input-wrap:focus-within {
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 3px var(--accent-glow2);
+  }
+  .input-wrap input {
+    flex: 1; background: transparent; border: none; outline: none;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono); font-size: 14px;
+    min-width: 0;
+  }
+  .input-wrap input::placeholder { color: var(--text-muted); font-size: 12px; }
+  .iunit {
+    background: var(--surface3);
+    border-left: 1px solid var(--border);
+    padding: 9px 10px;
+    font-size: 11px; color: var(--text-muted);
+    font-family: var(--mono);
+    display: flex; align-items: center;
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  .conc-row {
+    display: grid; grid-template-columns: 1fr 18px 1fr;
+    gap: 5px; align-items: center;
+  }
+  .conc-sep { text-align: center; font-size: 11px; color: var(--text-muted); }
+
+  .wt-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 7px; overflow: hidden;
+  }
+  .wt-toggle button {
+    flex: 1; background: var(--bg); border: none;
+    padding: 9px 0; color: var(--text-muted);
+    cursor: pointer; font-family: var(--sans);
+    font-size: 12px; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .wt-toggle button + button { border-left: 1px solid var(--border); }
+  .wt-toggle button.active { background: var(--accent-glow); color: var(--accent); }
+
+  .reset-btn {
+    font-size: 11px; color: var(--text-muted);
+    cursor: pointer; text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none; border: none;
+    font-family: var(--sans); padding: 0;
+    align-self: flex-start;
+  }
+  .reset-btn:hover { color: var(--text-dim); }
+
+  .calc-btn {
+    background: linear-gradient(135deg, #0ea5e9, #0369a1);
+    border: none; border-radius: 7px;
+    padding: 11px; color: #fff;
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    cursor: pointer; width: 100%;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: 2px;
+  }
+  .calc-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .calc-btn:active { transform: translateY(0); }
+
+  .results-list { display: flex; flex-direction: column; gap: 9px; }
+
+  .result-empty {
+    text-align: center; color: var(--text-muted);
+    font-size: 12px; padding: 40px 20px;
+    border: 1px dashed var(--border); border-radius: 8px;
+    line-height: 2;
+  }
+
+  .result-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 15px;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: border-color 0.15s;
+  }
+  .result-item:hover { border-color: var(--border2); }
+  .ri-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+  .ri-value { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--accent); letter-spacing: -0.5px; }
+  .ri-unit { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-align: right; }
+
+  .formula-box {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 11px 13px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--text-muted); line-height: 1.9;
+    display: none; white-space: pre-wrap;
+    margin-top: 2px;
+  }
+  .formula-box .c { color: var(--border2); }
+  .formula-box .v { color: var(--text-dim); }
+
+  .ranges-section { margin-top: 14px; }
+  .ranges-title {
+    font-size: 10px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ranges-list { display: flex; flex-direction: column; gap: 6px; }
+  .range-row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 12px;
+  }
+  .rr-label { font-size: 11px; color: var(--text-muted); }
+  .rr-val { font-family: var(--mono); font-size: 11px; color: var(--text-dim); font-weight: 600; }
+
+  .drug-note {
+    font-size: 11px; color: var(--text-muted);
+    background: rgba(251,191,36,0.06);
+    border: 1px solid rgba(251,191,36,0.15);
+    border-radius: 6px; padding: 8px 11px;
+    line-height: 1.6;
+  }
+  .drug-note strong { color: var(--yellow); }
+
+  .disclaimer {
+    margin-top: 28px;
+    background: var(--red-bg);
+    border: 1px solid rgba(248,113,113,0.18);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 11px; color: var(--text-muted);
+    line-height: 1.8; text-align: center;
+  }
+  .disclaimer strong { color: var(--red); }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">＋</div>
+    <div>
+      <div class="logo-title">ICU Drug Dose Calculator</div>
+      <div class="logo-sub">IV infusion · mL/h → dose conversion</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <span class="hbadge hb-warn">⚠ Verify All Doses</span>
+    <span class="hbadge hb-blue">ICU / CCU</span>
+  </div>
+</header>
+
+<div class="page">
+  <div class="drug-grid" id="drugGrid"></div>
+  <div id="calcArea"></div>
+  <div class="disclaimer">
+    <strong>⚠ Medical Disclaimer:</strong> This calculator is a supplementary tool only and does not replace clinical judgment, institutional protocols, or physician/pharmacist oversight.
+    Always verify all doses independently. The authors accept no liability for clinical decisions made using this tool.
+  </div>
+</div>
+
+<script>
+const DRUGS = [
+  {
+    id: 'dopamine', name: 'Dopamine', class: 'Catecholamine',
+    conc: { amt: 200, vol: 50, unit: 'mg' },
+    outputs: ['mcg/kg/min','mcg/kg/h','mg/h'],
+    note: 'Dilute in D5W or NS. Incompatible with alkaline solutions. Central line preferred at higher doses.',
+    ranges: [
+      { l: 'Dopaminergic (renal)', v: '1–5 mcg/kg/min' },
+      { l: 'Beta-1 (inotropic)', v: '5–10 mcg/kg/min' },
+      { l: 'Alpha (vasopressor)', v: '10–20 mcg/kg/min' },
+      { l: 'Maximum', v: '≤ 50 mcg/kg/min' },
+    ]
+  },
+  {
+    id: 'noradrenaline', name: 'Noradrenaline', class: 'Catecholamine',
+    conc: { amt: 8, vol: 50, unit: 'mg' },
+    outputs: ['mcg/kg/min','mcg/min','mg/h'],
+    note: 'Central line required. First-line vasopressor for septic shock. Titrate to MAP ≥65 mmHg.',
+    ranges: [
+      { l: 'Starting dose', v: '0.01–0.1 mcg/kg/min' },
+      { l: 'Moderate dose', v: '0.1–0.5 mcg/kg/min' },
+      { l: 'High dose', v: '> 0.5 mcg/kg/min' },
+    ]
+  },
+  {
+    id: 'adrenaline', name: 'Adrenaline', class: 'Catecholamine',
+    conc: { amt: 4, vol: 50, unit: 'mg' },
+    outputs: ['mcg/kg/min','mcg/min','mg/h'],
+    note: 'Dedicated lumen required. Monitor serum lactate — can cause lactic acidosis at higher doses.',
+    ranges: [
+      { l: 'Low (inotropic)', v: '0.01–0.05 mcg/kg/min' },
+      { l: 'Vasopressor range', v: '0.05–0.5 mcg/kg/min' },
+      { l: 'High dose', v: '> 0.5 mcg/kg/min' },
+    ]
+  },
+  {
+    id: 'dobutamine', name: 'Dobutamine', class: 'Catecholamine',
+    conc: { amt: 250, vol: 50, unit: 'mg' },
+    outputs: ['mcg/kg/min','mcg/kg/h','mg/h'],
+    note: 'Positive inotrope. May precipitate tachycardia and hypotension. Avoid in obstructive shock.',
+    ranges: [
+      { l: 'Standard dose', v: '2–10 mcg/kg/min' },
+      { l: 'High dose', v: '10–20 mcg/kg/min' },
+      { l: 'Maximum', v: '≤ 40 mcg/kg/min' },
+    ]
+  },
+  {
+    id: 'morphine', name: 'Morphine', class: 'Opioid',
+    conc: { amt: 50, vol: 50, unit: 'mg' },
+    outputs: ['mg/h','mg/kg/h','mcg/kg/h'],
+    note: 'Active metabolites accumulate in renal impairment — consider fentanyl instead. Causes histamine release.',
+    ranges: [
+      { l: 'Analgesia (ICU)', v: '0.02–0.1 mg/kg/h' },
+      { l: 'Sedation adjunct', v: '0.1–0.2 mg/kg/h' },
+    ]
+  },
+  {
+    id: 'fentanyl', name: 'Fentanyl', class: 'Opioid',
+    conc: { amt: 1, vol: 50, unit: 'mg' },
+    outputs: ['mcg/kg/h','mcg/h','mcg/kg/min'],
+    isMg: true,
+    note: 'Preferred opioid in renal/hepatic failure. Context-sensitive half-life with prolonged infusions. 1 mg = 1000 mcg.',
+    ranges: [
+      { l: 'Analgesia (ICU)', v: '25–100 mcg/h' },
+      { l: 'Per weight', v: '0.5–2 mcg/kg/h' },
+      { l: 'High dose', v: '2–5 mcg/kg/h' },
+    ]
+  },
+  {
+    id: 'remifentanil', name: 'Remifentanil', class: 'Opioid',
+    conc: { amt: 5, vol: 50, unit: 'mg' },
+    outputs: ['mcg/kg/min','mcg/kg/h','mcg/h'],
+    isMg: true,
+    note: 'Ultra-short acting (t½ ~3 min), context-insensitive. Use ideal body weight. No accumulation in organ failure.',
+    ranges: [
+      { l: 'Analgesia', v: '0.025–0.2 mcg/kg/min' },
+      { l: 'Sedation (with propofol)', v: '0.05–0.3 mcg/kg/min' },
+      { l: 'Procedural sedation', v: '0.25–1 mcg/kg/min' },
+    ]
+  },
+  {
+    id: 'propofol', name: 'Propofol', class: 'Anaesthetic',
+    conc: { amt: 1000, vol: 100, unit: 'mg' },
+    outputs: ['mg/kg/h','mcg/kg/min','mg/h'],
+    note: 'Monitor triglycerides with prolonged use. Max 4 mg/kg/h to avoid PRIS. 1% = 10 mg/mL.',
+    ranges: [
+      { l: 'Light sedation', v: '0.5–2 mg/kg/h' },
+      { l: 'Deep sedation', v: '2–4 mg/kg/h' },
+      { l: 'Maximum (PRIS risk)', v: '4 mg/kg/h' },
+    ]
+  },
+  {
+    id: 'midazolam', name: 'Midazolam', class: 'Benzodiazepine',
+    conc: { amt: 50, vol: 50, unit: 'mg' },
+    outputs: ['mg/h','mg/kg/h','mcg/kg/min'],
+    note: 'Accumulates with prolonged use, especially in obesity/hepatic failure. Associated with ICU delirium.',
+    ranges: [
+      { l: 'Sedation', v: '0.02–0.1 mg/kg/h' },
+      { l: 'Deep sedation', v: '0.1–0.2 mg/kg/h' },
+      { l: 'Maximum', v: '0.2 mg/kg/h' },
+    ]
+  },
+  {
+    id: 'ketamine', name: 'Ketamine', class: 'Dissociative',
+    conc: { amt: 500, vol: 50, unit: 'mg' },
+    outputs: ['mg/kg/h','mcg/kg/min','mg/h'],
+    note: 'Bronchodilator. Preserves airway reflexes and haemodynamics. Co-administer benzodiazepine to reduce emergence phenomena.',
+    ranges: [
+      { l: 'Sub-dissociative analgesia', v: '0.1–0.5 mg/kg/h' },
+      { l: 'Sedation / anaesthesia', v: '0.5–2 mg/kg/h' },
+      { l: 'RSI induction (bolus)', v: '1–2 mg/kg IV' },
+    ]
+  },
+  {
+    id: 'dexmedetomidine', name: 'Dexmedetomidine', class: 'Alpha-2 Agonist',
+    conc: { amt: 400, vol: 100, unit: 'mcg' },
+    outputs: ['mcg/kg/h','mcg/h'],
+    isMcg: true,
+    note: 'No respiratory depression. Monitor bradycardia and hypotension. Loading dose (1 mcg/kg over 10 min) is optional.',
+    ranges: [
+      { l: 'Sedation (ICU)', v: '0.2–0.7 mcg/kg/h' },
+      { l: 'Higher sedation', v: '0.7–1.5 mcg/kg/h' },
+      { l: 'Loading dose (optional)', v: '1 mcg/kg over 10 min' },
+    ]
+  },
+  {
+    id: 'heparin', name: 'Heparin', class: 'Anticoagulant',
+    conc: { amt: 12500, vol: 50, unit: 'units' },
+    outputs: ['units/h','units/kg/h'],
+    isUnits: true,
+    note: 'Monitor aPTT every 6h. Target aPTT 60–100 sec (institution-specific). Adjust per weight-based protocol.',
+    ranges: [
+      { l: 'Prophylaxis', v: '5 units/kg/h' },
+      { l: 'Therapeutic (DVT/PE)', v: '10–25 units/kg/h' },
+      { l: 'ECMO / cardiac surgery', v: '5–15 units/kg/h' },
+    ]
+  },
+];
+
+const wtUnit = {};
+DRUGS.forEach(d => { wtUnit[d.id] = 'kg'; });
+
+// BUILD
+const gridEl  = document.getElementById('drugGrid');
+const areaEl  = document.getElementById('calcArea');
+
+DRUGS.forEach((drug, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'drug-btn' + (i === 0 ? ' active' : '');
+  btn.dataset.id = drug.id;
+  btn.innerHTML = `<span class="db-name">${drug.name}</span><span class="db-class">${drug.class}</span>`;
+  btn.addEventListener('click', () => activate(drug.id));
+  gridEl.appendChild(btn);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'calc-wrap' + (i === 0 ? ' active' : '');
+  wrap.id = 'wrap-' + drug.id;
+  wrap.innerHTML = buildHTML(drug);
+  areaEl.appendChild(wrap);
+});
+
+function activate(id) {
+  document.querySelectorAll('.drug-btn').forEach(b  => b.classList.toggle('active',  b.dataset.id  === id));
+  document.querySelectorAll('.calc-wrap').forEach(w => w.classList.toggle('active',  w.id === 'wrap-' + id));
+}
+
+function buildHTML(d) {
+  const cu = d.isMcg ? 'mcg' : d.conc.unit;
+  const ranges = d.ranges.map(r =>
+    `<div class="range-row"><span class="rr-label">${r.l}</span><span class="rr-val">${r.v}</span></div>`
+  ).join('');
+
+  return `
+  <div class="panel">
+    <div class="panel-head">
+      <div><h2>${d.name}</h2><div class="ph-sub">${d.class}</div></div>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Concentration</label>
+        <div class="conc-row">
+          <div class="input-wrap">
+            <div class="iunit">${cu}</div>
+            <input type="number" id="${d.id}-ca" value="${d.conc.amt}" min="0" step="any">
+          </div>
+          <div class="conc-sep">in</div>
+          <div class="input-wrap">
+            <div class="iunit">mL</div>
+            <input type="number" id="${d.id}-cv" value="${d.conc.vol}" min="0" step="any">
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Infusion Rate</label>
+        <div class="input-wrap">
+          <div class="iunit">mL/h</div>
+          <input type="number" id="${d.id}-rt" placeholder="e.g. 5" min="0" step="any">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Patient Weight</label>
+        <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
+          <div class="input-wrap">
+            <input type="number" id="${d.id}-wt" placeholder="70" min="1" step="0.1">
+          </div>
+          <div class="wt-toggle">
+            <button id="${d.id}-kg" class="active" onclick="setWt('${d.id}','kg')">kg</button>
+            <button id="${d.id}-lb" onclick="setWt('${d.id}','lb')">lb</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="reset-btn" onclick="resetDrug('${d.id}')">↺ Reset to defaults</button>
+      <button class="calc-btn" onclick="calculate('${d.id}')">Calculate →</button>
+      <div class="formula-box" id="${d.id}-fx"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div><h2>Results</h2><div class="ph-sub">mL/h → dose conversion</div></div>
+    </div>
+    <div class="panel-body">
+      <div class="results-list" id="${d.id}-res">
+        <div class="result-empty">Enter values and click<br><strong style="color:var(--accent)">Calculate →</strong></div>
+      </div>
+      <div class="ranges-section">
+        <div class="ranges-title">Clinical Dose Ranges</div>
+        <div class="ranges-list">${ranges}</div>
+      </div>
+      ${d.note ? `<div class="drug-note"><strong>Note:</strong> ${d.note}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function setWt(id, unit) {
+  wtUnit[id] = unit;
+  document.getElementById(id+'-kg').classList.toggle('active', unit==='kg');
+  document.getElementById(id+'-lb').classList.toggle('active', unit==='lb');
+}
+
+function resetDrug(id) {
+  const d = DRUGS.find(x => x.id === id);
+  document.getElementById(id+'-ca').value = d.conc.amt;
+  document.getElementById(id+'-cv').value = d.conc.vol;
+  document.getElementById(id+'-rt').value = '';
+  document.getElementById(id+'-wt').value = '';
+  document.getElementById(id+'-res').innerHTML =
+    `<div class="result-empty">Enter values and click<br><strong style="color:var(--accent)">Calculate →</strong></div>`;
+  const fx = document.getElementById(id+'-fx');
+  fx.style.display = 'none';
+}
+
+function calculate(id) {
+  const d   = DRUGS.find(x => x.id === id);
+  const ca  = parseFloat(document.getElementById(id+'-ca').value);
+  const cv  = parseFloat(document.getElementById(id+'-cv').value);
+  const rt  = parseFloat(document.getElementById(id+'-rt').value);
+  const rawW = parseFloat(document.getElementById(id+'-wt').value);
+  const resEl = document.getElementById(id+'-res');
+  const fxEl  = document.getElementById(id+'-fx');
+
+  if (isNaN(ca) || isNaN(cv) || cv === 0 || isNaN(rt)) {
+    resEl.innerHTML = `<div class="result-empty" style="color:var(--red)">⚠ Please enter concentration and infusion rate.</div>`;
+    fxEl.style.display = 'none';
+    return;
+  }
+
+  const wKg = (!isNaN(rawW) && rawW > 0)
+    ? (wtUnit[id] === 'lb' ? rawW * 0.453592 : rawW)
+    : null;
+
+  const concPerMl = ca / cv;              // native unit / mL
+  const nativePerH = concPerMl * rt;      // native unit / h
+
+  // Normalise everything to mg/h for calculations (except mcg-stored and units-stored)
+  // isMcg: dexmedetomidine stored in mcg → nativePerH is mcg/h
+  // isUnits: heparin stored in units → nativePerH is units/h
+  // isMg (fentanyl/remi): stored in mg but dosed in mcg → convert ×1000
+
+  const results = [];
+
+  d.outputs.forEach(out => {
+    let val = null, label = '';
+
+    if (d.isUnits) {
+      if (out === 'units/h')    { val = nativePerH;                               label = 'Units per hour'; }
+      if (out === 'units/kg/h') { val = wKg ? nativePerH / wKg : null;           label = 'Units / kg / hour'; }
+
+    } else if (d.isMcg) {
+      // nativePerH = mcg/h
+      if (out === 'mcg/h')    { val = nativePerH;                                label = 'Total dose / hour'; }
+      if (out === 'mcg/kg/h') { val = wKg ? nativePerH / wKg : null;            label = 'Dose / kg / hour'; }
+
+    } else {
+      // mg-stored drugs (including isMg flag for fentanyl/remi where output is in mcg)
+      const mgPerH = nativePerH;          // mg/h
+
+      if (out === 'mg/h')       { val = mgPerH;                                             label = 'Total dose / hour'; }
+      if (out === 'mg/kg/h')    { val = wKg ? mgPerH / wKg : null;                         label = 'Dose / kg / hour'; }
+      if (out === 'mcg/h')      { val = mgPerH * 1000;                                     label = 'Total dose / hour'; }
+      if (out === 'mcg/kg/h')   { val = wKg ? (mgPerH * 1000) / wKg : null;               label = 'Dose / kg / hour'; }
+      if (out === 'mcg/kg/min') { val = wKg ? (mgPerH * 1000) / (wKg * 60) : null;        label = 'Dose / kg / minute'; }
+      if (out === 'mcg/min')    { val = (mgPerH * 1000) / 60;                              label = 'Total dose / minute'; }
+    }
+
+    const needsWt = out.includes('kg') && wKg === null;
+    results.push({ label, val, unit: out, needsWt });
+  });
+
+  resEl.innerHTML = results.map(r => {
+    if (r.needsWt) {
+      return `<div class="result-item" style="opacity:0.45">
+        <div><div class="ri-label">${r.label}</div>
+        <div class="ri-value" style="font-size:13px;color:var(--text-muted)">— enter weight —</div></div>
+        <div class="ri-unit">${r.unit}</div>
+      </div>`;
+    }
+    return `<div class="result-item">
+      <div><div class="ri-label">${r.label}</div><div class="ri-value">${fmt(r.val)}</div></div>
+      <div class="ri-unit">${r.unit}</div>
+    </div>`;
+  }).join('');
+
+  const cu  = d.isMcg ? 'mcg' : (d.isUnits ? 'units' : 'mg');
+  const wStr = wKg ? `${fmt(wKg)} kg` : 'not entered';
+  fxEl.style.display = 'block';
+  fxEl.innerHTML =
+    `<span class="c">// Steps</span>\n` +
+    `<span class="v">Conc:  </span>${ca} ${cu} ÷ ${cv} mL = ${fmt(concPerMl)} ${cu}/mL\n` +
+    `<span class="v">Rate:  </span>${rt} mL/h  |  Weight: ${wStr}\n` +
+    `<span class="v">Hourly:</span>${rt} × ${fmt(concPerMl)} = ${fmt(nativePerH)} ${cu}/h`;
+}
+
+function fmt(n) {
+  if (n === null || isNaN(n)) return '—';
+  if (n >= 10000) return n.toFixed(0);
+  if (n >= 1000)  return n.toFixed(1);
+  if (n >= 100)   return n.toFixed(1);
+  if (n >= 10)    return n.toFixed(2);
+  if (n >= 1)     return n.toFixed(3);
+  if (n >= 0.01)  return n.toFixed(4);
+  return n.toExponential(2);
+}
+</script>
+</body>
+</html>
