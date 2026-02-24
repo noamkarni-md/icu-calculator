@@ -310,6 +310,7 @@
     </div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
+    <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">Created by <strong style="color:var(--text-dim)">Noam Karni, MD</strong></span>
     <span class="hbadge hb-warn">⚠ Verify All Doses</span>
     <span class="hbadge hb-blue">ICU / CCU</span>
   </div>
@@ -630,7 +631,7 @@ function buildHTML(d) {
         <label>Patient Weight</label>
         <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
           <div class="input-wrap">
-            <input type="number" id="${d.id}-wt" placeholder="70" min="1" step="0.1">
+            <input type="number" id="${d.id}-wt" value="80" min="1" step="0.1">
           </div>
           <div class="wt-toggle">
             <button id="${d.id}-kg" class="active" onclick="setWt('${d.id}','kg')">kg</button>
