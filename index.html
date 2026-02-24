@@ -55,29 +55,36 @@
     background: rgba(7,11,20,0.93);
     backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--border);
-    padding: 0 28px;
-    height: 56px;
+    padding: 0 16px;
+    height: 52px;
     display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
   }
 
-  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo { display: flex; align-items: center; gap: 8px; min-width: 0; flex-shrink: 1; }
   .logo-icon {
-    width: 30px; height: 30px;
+    width: 28px; height: 28px; flex-shrink: 0;
     background: linear-gradient(135deg, rgba(56,189,248,0.2), rgba(14,165,233,0.1));
     border: 1px solid rgba(56,189,248,0.3);
     border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 16px; line-height: 1;
+    font-size: 15px; line-height: 1;
   }
-  .logo-title { font-size: 14px; font-weight: 600; color: var(--text); }
-  .logo-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+  .logo-title { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+  .logo-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; }
 
   .hbadge {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.7px;
-    padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 20px; text-transform: uppercase;
+    white-space: nowrap;
   }
   .hb-blue { background: var(--accent-glow); border: 1px solid rgba(56,189,248,0.25); color: var(--accent); }
   .hb-warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: var(--yellow); }
+
+  @media (max-width: 480px) {
+    .hb-warn { display: none; }
+    .logo-sub { display: none; }
+  }
 
   .page {
     position: relative; z-index: 1;
@@ -306,11 +313,10 @@
     <div class="logo-icon">＋</div>
     <div>
       <div class="logo-title">ICU Drug Dose Calculator</div>
-      <div class="logo-sub">IV infusion · mL/h → dose conversion</div>
+      <div class="logo-sub">Created by Noam Karni, MD · ICU / CCU</div>
     </div>
   </div>
-  <div style="display:flex;gap:8px;align-items:center;">
-    <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">Created by <strong style="color:var(--text-dim)">Noam Karni, MD</strong></span>
+  <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
     <span class="hbadge hb-warn">⚠ Verify All Doses</span>
     <span class="hbadge hb-blue">ICU / CCU</span>
   </div>
