@@ -81,9 +81,8 @@
   .hb-blue { background: var(--accent-glow); border: 1px solid rgba(56,189,248,0.25); color: var(--accent); }
   .hb-warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: var(--yellow); }
 
-  @media (max-width: 480px) {
-    .hb-warn { display: none; }
-    .logo-sub { display: none; }
+  @media (max-width: 600px) {
+    header { height: auto; padding: 10px 14px; flex-wrap: wrap; gap: 6px; }
   }
 
   .page {
@@ -313,7 +312,7 @@
     <div class="logo-icon">＋</div>
     <div>
       <div class="logo-title">ICU Drug Dose Calculator</div>
-      <div class="logo-sub">Created by Noam Karni, MD · ICU / CCU</div>
+      <div class="logo-sub">Created by <strong style="color:var(--text-dim)">Noam Karni, MD</strong></div>
     </div>
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
