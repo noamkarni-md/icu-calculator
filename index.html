@@ -419,9 +419,9 @@ const DRUGS = [
   {
     id: 'noradrenaline', name: 'Noradrenaline', class: 'Catecholamine',
     concs: [
+      { label: '8 mg / 50 mL',   amt: 8,  vol: 50  },
       { label: '4 mg / 50 mL',   amt: 4,  vol: 50  },
       { label: '4 mg / 100 mL',  amt: 4,  vol: 100 },
-      { label: '8 mg / 50 mL',   amt: 8,  vol: 50  },
       { label: '8 mg / 100 mL',  amt: 8,  vol: 100 },
       { label: '16 mg / 50 mL',  amt: 16, vol: 50  },
     ],
@@ -467,9 +467,9 @@ const DRUGS = [
   {
     id: 'dexmedetomidine', name: 'Dexmedetomidine', class: 'Alpha-2 Agonist',
     concs: [
-      { label: '800 mcg / 100 mL', amt: 800, vol: 100 },
-      { label: '800 mcg / 50 mL',  amt: 800, vol: 50  },
       { label: '400 mcg / 50 mL',  amt: 400, vol: 50  },
+      { label: '800 mcg / 50 mL',  amt: 800, vol: 50  },
+      { label: '800 mcg / 100 mL', amt: 800, vol: 100 },
     ],
     unit: 'mcg', isMcg: true, outputs: ['mcg/kg/h'],
     softLimit: 1, hardLimit: 1.5,
@@ -483,9 +483,9 @@ const DRUGS = [
   {
     id: 'ketamine', name: 'Ketamine', class: 'Dissociative',
     concs: [
-      { label: '1000 mg / 100 mL', amt: 1000, vol: 100 },
       { label: '500 mg / 50 mL',   amt: 500,  vol: 50  },
       { label: '500 mg / 100 mL',  amt: 500,  vol: 100 },
+      { label: '1000 mg / 100 mL', amt: 1000, vol: 100 },
     ],
     unit: 'mg', outputs: ['mg/kg/h'],
     softLimit: 1, hardLimit: 3,
@@ -533,8 +533,8 @@ const DRUGS = [
       { label: '2 mg / 50 mL',  amt: 2, vol: 50  },
       { label: '4 mg / 100 mL', amt: 4, vol: 100 },
     ],
-    unit: 'mg', isMg: true, outputs: ['mcg/kg/h'],
-    softLimit: 15, hardLimit: 20,
+    unit: 'mg', isMg: true, outputs: ['mcg/h'],
+    softLimit: 200, hardLimit: 400,
     note: 'Preferred opioid in renal/hepatic failure. Context-sensitive half-life with prolonged infusions. 1 mg = 1000 mcg.',
     ranges: [
       { l: 'Analgesia (ICU)', v: '25–100 mcg/h'   },
@@ -558,7 +558,7 @@ const DRUGS = [
   {
     id: 'remifentanil', name: 'Remifentanil', class: 'Opioid',
     concs: [
-      { label: '5 mg / 50 mL', amt: 5, vol: 50 },
+      { label: '6000 mcg / 50 mL', amt: 6, vol: 50 },
     ],
     unit: 'mg', isMg: true, outputs: ['mcg/kg/min'],
     softLimit: null, hardLimit: null,
@@ -727,10 +727,6 @@ function buildHTML(d) {
       ${d.hardLimit != null ? `<span class="limit-badge hard">Hard limit: ${d.hardLimit} ${d.outputs[0]}</span>` : ''}
     </div>` : '';
 
-  const ranges = d.ranges.map(r =>
-    `<div class="range-row"><span class="rr-label">${r.l}</span><span class="rr-val">${r.v}</span></div>`
-  ).join('');
-
   return `
   <div class="panel">
     <div class="panel-head">
@@ -793,10 +789,7 @@ function buildHTML(d) {
       <div class="results-list" id="${d.id}-res">
         <div class="result-empty">Enter values and click<br><strong style="color:var(--accent)">Calculate →</strong></div>
       </div>
-      <div class="ranges-section">
-        <div class="ranges-title">Clinical Dose Ranges</div>
-        <div class="ranges-list">${ranges}</div>
-      </div>
+
       ${d.note ? `<div class="drug-note"><strong>Note:</strong> ${d.note}</div>` : ''}
     </div>
   </div>`;
