@@ -303,6 +303,38 @@
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .conc-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .conc-select:focus { border-color: var(--accent-dim); }
+  .conc-select option { background: var(--surface2); }
+
+  .limit-badge {
+    font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+  .limit-badge.soft {
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.3);
+    color: var(--yellow);
+  }
+  .limit-badge.hard {
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    color: var(--red);
+  }
 </style>
 </head>
 <body>
@@ -332,240 +364,327 @@
 
 <script>
 const DRUGS = [
-  {
-    id: 'dopamine', name: 'Dopamine', class: 'Catecholamine',
-    conc: { amt: 200, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/kg/h','mg/h'],
-    note: 'Dilute in D5W or NS. Incompatible with alkaline solutions. Central line preferred at higher doses.',
-    ranges: [
-      { l: 'Dopaminergic (renal)', v: '1–5 mcg/kg/min' },
-      { l: 'Beta-1 (inotropic)', v: '5–10 mcg/kg/min' },
-      { l: 'Alpha (vasopressor)', v: '10–20 mcg/kg/min' },
-      { l: 'Maximum', v: '≤ 50 mcg/kg/min' },
-    ]
-  },
-  {
-    id: 'noradrenaline', name: 'Noradrenaline', class: 'Catecholamine',
-    conc: { amt: 8, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/min','mg/h'],
-    note: 'Central line required. First-line vasopressor for septic shock. Titrate to MAP ≥65 mmHg.',
-    ranges: [
-      { l: 'Starting dose', v: '0.01–0.1 mcg/kg/min' },
-      { l: 'Moderate dose', v: '0.1–0.5 mcg/kg/min' },
-      { l: 'High dose', v: '> 0.5 mcg/kg/min' },
-    ]
-  },
+  // ── CATECHOLAMINES ──────────────────────────────────────────────
   {
     id: 'adrenaline', name: 'Adrenaline', class: 'Catecholamine',
-    conc: { amt: 4, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/min','mg/h'],
+    concs: [
+      { label: '4 mg / 50 mL',  amt: 4,  vol: 50  },
+      { label: '4 mg / 100 mL', amt: 4,  vol: 100 },
+      { label: '8 mg / 50 mL',  amt: 8,  vol: 50  },
+      { label: '8 mg / 100 mL', amt: 8,  vol: 100 },
+      { label: '16 mg / 50 mL', amt: 16, vol: 50  },
+      { label: '32 mg / 50 mL', amt: 32, vol: 50  },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 1, hardLimit: 2,
     note: 'Dedicated lumen required. Monitor serum lactate — can cause lactic acidosis at higher doses.',
     ranges: [
-      { l: 'Low (inotropic)', v: '0.01–0.05 mcg/kg/min' },
-      { l: 'Vasopressor range', v: '0.05–0.5 mcg/kg/min' },
-      { l: 'High dose', v: '> 0.5 mcg/kg/min' },
+      { l: 'Low (inotropic)',    v: '0.01–0.05 mcg/kg/min' },
+      { l: 'Vasopressor range',  v: '0.05–0.5 mcg/kg/min'  },
+      { l: 'High dose',          v: '> 0.5 mcg/kg/min'      },
     ]
   },
   {
     id: 'dobutamine', name: 'Dobutamine', class: 'Catecholamine',
-    conc: { amt: 250, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/kg/h','mg/h'],
+    concs: [
+      { label: '250 mg / 50 mL',  amt: 250, vol: 50  },
+      { label: '250 mg / 100 mL', amt: 250, vol: 100 },
+      { label: '500 mg / 50 mL',  amt: 500, vol: 50  },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 20, hardLimit: 30,
     note: 'Positive inotrope. May precipitate tachycardia and hypotension. Avoid in obstructive shock.',
     ranges: [
-      { l: 'Standard dose', v: '2–10 mcg/kg/min' },
-      { l: 'High dose', v: '10–20 mcg/kg/min' },
-      { l: 'Maximum', v: '≤ 40 mcg/kg/min' },
+      { l: 'Standard dose', v: '2–10 mcg/kg/min'  },
+      { l: 'High dose',     v: '10–20 mcg/kg/min' },
+      { l: 'Maximum',       v: '≤ 40 mcg/kg/min'  },
     ]
   },
   {
-    id: 'morphine', name: 'Morphine', class: 'Opioid',
-    conc: { amt: 50, vol: 50, unit: 'mg' },
-    outputs: ['mg/h','mg/kg/h','mcg/kg/h'],
-    note: 'Active metabolites accumulate in renal impairment — consider fentanyl instead. Causes histamine release.',
+    id: 'dopamine', name: 'Dopamine', class: 'Catecholamine',
+    concs: [
+      { label: '400 mg / 50 mL',  amt: 400, vol: 50  },
+      { label: '400 mg / 100 mL', amt: 400, vol: 100 },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 20, hardLimit: 30,
+    note: 'Dilute in D5W or NS. Incompatible with alkaline solutions. Central line preferred at higher doses.',
     ranges: [
-      { l: 'Analgesia (ICU)', v: '0.02–0.1 mg/kg/h' },
-      { l: 'Sedation adjunct', v: '0.1–0.2 mg/kg/h' },
+      { l: 'Dopaminergic (renal)', v: '1–5 mcg/kg/min'   },
+      { l: 'Beta-1 (inotropic)',   v: '5–10 mcg/kg/min'  },
+      { l: 'Alpha (vasopressor)',  v: '10–20 mcg/kg/min' },
+      { l: 'Maximum',              v: '≤ 50 mcg/kg/min'  },
     ]
   },
   {
-    id: 'fentanyl', name: 'Fentanyl', class: 'Opioid',
-    conc: { amt: 1, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/h','mcg/h','mcg/kg/min'],
-    isMg: true,
-    note: 'Preferred opioid in renal/hepatic failure. Context-sensitive half-life with prolonged infusions. 1 mg = 1000 mcg.',
+    id: 'noradrenaline', name: 'Noradrenaline', class: 'Catecholamine',
+    concs: [
+      { label: '4 mg / 50 mL',   amt: 4,  vol: 50  },
+      { label: '4 mg / 100 mL',  amt: 4,  vol: 100 },
+      { label: '8 mg / 50 mL',   amt: 8,  vol: 50  },
+      { label: '8 mg / 100 mL',  amt: 8,  vol: 100 },
+      { label: '16 mg / 50 mL',  amt: 16, vol: 50  },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 1, hardLimit: 2,
+    note: 'Central line required. First-line vasopressor for septic shock. Titrate to MAP ≥65 mmHg.',
     ranges: [
-      { l: 'Analgesia (ICU)', v: '25–100 mcg/h' },
-      { l: 'Per weight', v: '0.5–2 mcg/kg/h' },
-      { l: 'High dose', v: '2–5 mcg/kg/h' },
+      { l: 'Starting dose',  v: '0.01–0.1 mcg/kg/min' },
+      { l: 'Moderate dose',  v: '0.1–0.5 mcg/kg/min'  },
+      { l: 'High dose',      v: '> 0.5 mcg/kg/min'     },
     ]
   },
+  // ── VASOPRESSORS ────────────────────────────────────────────────
   {
-    id: 'remifentanil', name: 'Remifentanil', class: 'Opioid',
-    conc: { amt: 5, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/kg/h','mcg/h'],
-    isMg: true,
-    note: 'Ultra-short acting (t½ ~3 min), context-insensitive. Use ideal body weight. No accumulation in organ failure.',
+    id: 'phenylephrine', name: 'Phenylephrine', class: 'Vasopressor',
+    concs: [
+      { label: '20 mg / 50 mL',  amt: 20, vol: 50  },
+      { label: '20 mg / 100 mL', amt: 20, vol: 100 },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 2, hardLimit: 5,
+    note: 'Pure alpha-1 agonist — no inotropic effect. May cause reflex bradycardia.',
     ranges: [
-      { l: 'Analgesia', v: '0.025–0.2 mcg/kg/min' },
-      { l: 'Sedation (with propofol)', v: '0.05–0.3 mcg/kg/min' },
-      { l: 'Procedural sedation', v: '0.25–1 mcg/kg/min' },
-    ]
-  },
-  {
-    id: 'propofol', name: 'Propofol', class: 'Anaesthetic',
-    conc: { amt: 1000, vol: 100, unit: 'mg' },
-    outputs: ['mg/kg/h','mcg/kg/min','mg/h'],
-    note: 'Monitor triglycerides with prolonged use. Max 4 mg/kg/h to avoid PRIS. 1% = 10 mg/mL.',
-    ranges: [
-      { l: 'Light sedation', v: '0.5–2 mg/kg/h' },
-      { l: 'Deep sedation', v: '2–4 mg/kg/h' },
-      { l: 'Maximum (PRIS risk)', v: '4 mg/kg/h' },
-    ]
-  },
-  {
-    id: 'midazolam', name: 'Midazolam', class: 'Benzodiazepine',
-    conc: { amt: 50, vol: 50, unit: 'mg' },
-    outputs: ['mg/h','mg/kg/h','mcg/kg/min'],
-    note: 'Accumulates with prolonged use, especially in obesity/hepatic failure. Associated with ICU delirium.',
-    ranges: [
-      { l: 'Sedation', v: '0.02–0.1 mg/kg/h' },
-      { l: 'Deep sedation', v: '0.1–0.2 mg/kg/h' },
-      { l: 'Maximum', v: '0.2 mg/kg/h' },
-    ]
-  },
-  {
-    id: 'ketamine', name: 'Ketamine', class: 'Dissociative',
-    conc: { amt: 500, vol: 50, unit: 'mg' },
-    outputs: ['mg/kg/h','mcg/kg/min','mg/h'],
-    note: 'Bronchodilator. Preserves airway reflexes and haemodynamics. Co-administer benzodiazepine to reduce emergence phenomena.',
-    ranges: [
-      { l: 'Sub-dissociative analgesia', v: '0.1–0.5 mg/kg/h' },
-      { l: 'Sedation / anaesthesia', v: '0.5–2 mg/kg/h' },
-      { l: 'RSI induction (bolus)', v: '1–2 mg/kg IV' },
-    ]
-  },
-  {
-    id: 'dexmedetomidine', name: 'Dexmedetomidine', class: 'Alpha-2 Agonist',
-    conc: { amt: 400, vol: 100, unit: 'mcg' },
-    outputs: ['mcg/kg/h','mcg/h'],
-    isMcg: true,
-    note: 'No respiratory depression. Monitor bradycardia and hypotension. Loading dose (1 mcg/kg over 10 min) is optional.',
-    ranges: [
-      { l: 'Sedation (ICU)', v: '0.2–0.7 mcg/kg/h' },
-      { l: 'Higher sedation', v: '0.7–1.5 mcg/kg/h' },
-      { l: 'Loading dose (optional)', v: '1 mcg/kg over 10 min' },
+      { l: 'Starting dose', v: '0.5–1 mcg/kg/min' },
+      { l: 'Maintenance',   v: '0.5–6 mcg/kg/min' },
+      { l: 'Maximum',       v: '6 mcg/kg/min'      },
     ]
   },
   {
     id: 'vasopressin', name: 'Vasopressin', class: 'Vasopressor',
-    conc: { amt: 40, vol: 50, unit: 'units' },
-    outputs: ['units/h','units/min'],
-    isUnits: true,
-    note: 'Fixed dose vasopressor — typically NOT titrated by weight. Used as adjunct to noradrenaline in refractory septic shock.',
+    concs: [
+      { label: '40 U / 40 mL', amt: 40, vol: 40 },
+    ],
+    unit: 'units', isUnits: true, outputs: ['units/h'],
+    softLimit: 2.4, hardLimit: 5,
+    note: 'Fixed dose vasopressor — NOT titrated by weight. Used as adjunct to noradrenaline in refractory septic shock.',
     ranges: [
-      { l: 'Septic shock (fixed)', v: '0.03–0.04 units/min' },
-      { l: 'Oesophageal varices', v: '0.2–0.4 units/min' },
-      { l: 'Maximum', v: '0.1 units/min' },
+      { l: 'Septic shock (fixed)', v: '0.03–0.04 units/min (= 1.8–2.4 U/h)' },
+      { l: 'Maximum',              v: '0.1 units/min (= 6 U/h)'               },
+    ]
+  },
+  // ── SEDATION / ANAESTHESIA ──────────────────────────────────────
+  {
+    id: 'dexmedetomidine', name: 'Dexmedetomidine', class: 'Alpha-2 Agonist',
+    concs: [
+      { label: '800 mcg / 100 mL', amt: 800, vol: 100 },
+      { label: '800 mcg / 50 mL',  amt: 800, vol: 50  },
+      { label: '400 mcg / 50 mL',  amt: 400, vol: 50  },
+    ],
+    unit: 'mcg', isMcg: true, outputs: ['mcg/kg/h'],
+    softLimit: 1, hardLimit: 1.5,
+    note: 'No respiratory depression. Monitor bradycardia and hypotension. Loading dose (1 mcg/kg over 10 min) is optional.',
+    ranges: [
+      { l: 'Sedation (ICU)',       v: '0.2–0.7 mcg/kg/h'       },
+      { l: 'Higher sedation',      v: '0.7–1.5 mcg/kg/h'       },
+      { l: 'Loading (optional)',   v: '1 mcg/kg over 10 min'    },
     ]
   },
   {
-    id: 'phenylephrine', name: 'Phenylephrine', class: 'Vasopressor',
-    conc: { amt: 100, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/min','mg/h'],
-    note: 'Pure alpha-1 agonist — no inotropic effect. May cause reflex bradycardia. Useful when tachyarrhythmia coexists with hypotension.',
+    id: 'ketamine', name: 'Ketamine', class: 'Dissociative',
+    concs: [
+      { label: '1000 mg / 100 mL', amt: 1000, vol: 100 },
+      { label: '500 mg / 50 mL',   amt: 500,  vol: 50  },
+      { label: '500 mg / 100 mL',  amt: 500,  vol: 100 },
+    ],
+    unit: 'mg', outputs: ['mg/kg/h'],
+    softLimit: 1, hardLimit: 3,
+    note: 'Bronchodilator. Preserves airway reflexes and haemodynamics. Co-administer benzodiazepine to reduce emergence phenomena.',
     ranges: [
-      { l: 'Starting dose', v: '0.5–1 mcg/kg/min' },
-      { l: 'Maintenance', v: '0.5–6 mcg/kg/min' },
-      { l: 'Maximum', v: '6 mcg/kg/min' },
+      { l: 'Sub-dissociative analgesia', v: '0.1–0.5 mg/kg/h'   },
+      { l: 'Sedation / anaesthesia',     v: '0.5–2 mg/kg/h'     },
+      { l: 'RSI induction (bolus)',       v: '1–2 mg/kg IV'      },
     ]
   },
   {
-    id: 'nicardipine', name: 'Nicardipine', class: 'Ca²⁺ Blocker',
-    conc: { amt: 25, vol: 250, unit: 'mg' },
-    outputs: ['mg/h','mcg/kg/min','mcg/min'],
-    note: 'Titratable IV calcium channel blocker. Indicated for hypertensive emergency, post-craniotomy, subarachnoid haemorrhage.',
+    id: 'midazolam', name: 'Midazolam', class: 'Benzodiazepine',
+    concs: [
+      { label: '50 mg / 50 mL',   amt: 50,  vol: 50  },
+      { label: '100 mg / 100 mL', amt: 100, vol: 100 },
+    ],
+    unit: 'mg', outputs: ['mg/h'],
+    softLimit: 10, hardLimit: 40,
+    note: 'Accumulates with prolonged use, especially in obesity/hepatic failure. Associated with ICU delirium.',
     ranges: [
-      { l: 'Starting dose', v: '5 mg/h' },
-      { l: 'Titration range', v: '5–15 mg/h' },
-      { l: 'Maximum', v: '15 mg/h' },
+      { l: 'Sedation',      v: '0.02–0.1 mg/kg/h' },
+      { l: 'Deep sedation', v: '0.1–0.2 mg/kg/h'  },
+      { l: 'Maximum',       v: '0.2 mg/kg/h'       },
     ]
   },
   {
-    id: 'milrinone', name: 'Milrinone', class: 'PDE-3 Inhibitor',
-    conc: { amt: 20, vol: 100, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/kg/h','mg/h'],
-    note: 'Inodilator — reduces afterload and improves CO. Dose-reduce in renal impairment. Loading dose optional: 50 mcg/kg over 10 min.',
+    id: 'propofol', name: 'Propofol', class: 'Anaesthetic',
+    concs: [
+      { label: '1000 mg / 50 mL', amt: 1000, vol: 50 },
+    ],
+    unit: 'mg', outputs: ['mg/kg/h'],
+    softLimit: 3, hardLimit: 5,
+    note: 'Monitor triglycerides with prolonged use. Max 4 mg/kg/h to avoid PRIS. 1% = 10 mg/mL.',
     ranges: [
-      { l: 'Maintenance', v: '0.375–0.75 mcg/kg/min' },
-      { l: 'Loading dose (optional)', v: '50 mcg/kg over 10 min' },
-      { l: 'Renal adjustment', v: 'Reduce per eGFR' },
+      { l: 'Light sedation',        v: '0.5–2 mg/kg/h' },
+      { l: 'Deep sedation',         v: '2–4 mg/kg/h'   },
+      { l: 'Maximum (PRIS risk)',   v: '4 mg/kg/h'      },
+    ]
+  },
+  // ── OPIOIDS ─────────────────────────────────────────────────────
+  {
+    id: 'fentanyl', name: 'Fentanyl', class: 'Opioid',
+    concs: [
+      { label: '1 mg / 50 mL',  amt: 1, vol: 50  },
+      { label: '2 mg / 50 mL',  amt: 2, vol: 50  },
+      { label: '4 mg / 100 mL', amt: 4, vol: 100 },
+    ],
+    unit: 'mg', isMg: true, outputs: ['mcg/kg/h'],
+    softLimit: 15, hardLimit: 20,
+    note: 'Preferred opioid in renal/hepatic failure. Context-sensitive half-life with prolonged infusions. 1 mg = 1000 mcg.',
+    ranges: [
+      { l: 'Analgesia (ICU)', v: '25–100 mcg/h'   },
+      { l: 'Per weight',      v: '0.5–2 mcg/kg/h' },
+      { l: 'High dose',       v: '2–5 mcg/kg/h'   },
     ]
   },
   {
-    id: 'levosimendan', name: 'Levosimendan', class: 'Ca²⁺ Sensitiser',
-    conc: { amt: 12.5, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mcg/kg/h','mg/h'],
-    note: 'Haemodynamic effects persist 7–9 days post-infusion. Loading dose (6–12 mcg/kg over 10 min) is optional — omit if hypotensive.',
+    id: 'morphine', name: 'Morphine', class: 'Opioid',
+    concs: [
+      { label: '100 mg / 100 mL', amt: 100, vol: 100 },
+    ],
+    unit: 'mg', outputs: ['mg/h'],
+    softLimit: 10, hardLimit: 40,
+    note: 'Active metabolites accumulate in renal impairment — consider fentanyl instead. Causes histamine release.',
     ranges: [
-      { l: 'Loading (optional)', v: '6–12 mcg/kg over 10 min' },
-      { l: 'Maintenance', v: '0.05–0.2 mcg/kg/min' },
-      { l: 'Standard 24h infusion', v: '0.1 mcg/kg/min' },
+      { l: 'Analgesia (ICU)',  v: '0.02–0.1 mg/kg/h' },
+      { l: 'Sedation adjunct', v: '0.1–0.2 mg/kg/h'  },
+    ]
+  },
+  {
+    id: 'remifentanil', name: 'Remifentanil', class: 'Opioid',
+    concs: [
+      { label: '5 mg / 50 mL', amt: 5, vol: 50 },
+    ],
+    unit: 'mg', isMg: true, outputs: ['mcg/kg/min'],
+    softLimit: null, hardLimit: null,
+    note: 'Ultra-short acting (t½ ~3 min), context-insensitive. Use ideal body weight. No accumulation in organ failure.',
+    ranges: [
+      { l: 'Analgesia',                  v: '0.025–0.2 mcg/kg/min' },
+      { l: 'Sedation (with propofol)',   v: '0.05–0.3 mcg/kg/min'  },
+      { l: 'Procedural sedation',        v: '0.25–1 mcg/kg/min'    },
+    ]
+  },
+  // ── CARDIOVASCULAR ──────────────────────────────────────────────
+  {
+    id: 'labetalol', name: 'Labetalol', class: 'Alpha+Beta Blocker',
+    concs: [
+      { label: '250 mg / 50 mL', amt: 250, vol: 50 },
+    ],
+    unit: 'mg', outputs: ['mg/min'],
+    softLimit: null, hardLimit: 10,
+    note: 'Combined alpha/beta blocker. Indicated in hypertensive emergency, aortic dissection, pre-eclampsia. Avoid in acute decompensated HF.',
+    ranges: [
+      { l: 'Starting infusion',    v: '1–2 mg/min'  },
+      { l: 'Maintenance',          v: '0.5–2 mg/min' },
+      { l: 'Max cumulative dose',  v: '300 mg'       },
     ]
   },
   {
     id: 'landiolol', name: 'Landiolol', class: 'Beta-1 Blocker',
-    conc: { amt: 300, vol: 50, unit: 'mg' },
-    outputs: ['mcg/kg/min','mg/kg/h','mg/h'],
+    concs: [
+      { label: '300 mg / 50 mL', amt: 300, vol: 50 },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 10, hardLimit: 20,
     note: 'Ultra-short-acting beta-1 selective blocker (t½ ~4 min). Minimal negative inotropy. Indicated for AF/flutter rate control in ICU.',
     ranges: [
-      { l: 'Rate control (AF/flutter)', v: '1–10 mcg/kg/min' },
-      { l: 'Loading (optional)', v: '100 mcg/kg over 1 min' },
-      { l: 'Higher doses', v: 'Up to 40 mcg/kg/min' },
+      { l: 'Rate control (AF/flutter)', v: '1–10 mcg/kg/min'     },
+      { l: 'Loading (optional)',         v: '100 mcg/kg over 1 min' },
+      { l: 'Higher doses',               v: 'Up to 40 mcg/kg/min'  },
     ]
   },
   {
-    id: 'labetalol', name: 'Labetalol', class: 'Alpha+Beta Blocker',
-    conc: { amt: 200, vol: 200, unit: 'mg' },
-    outputs: ['mg/h','mg/kg/h','mcg/kg/min'],
-    note: 'Combined alpha/beta blocker. Indicated in hypertensive emergency, aortic dissection, pre-eclampsia. Avoid in acute decompensated HF.',
+    id: 'levosimendan', name: 'Levosimendan', class: 'Ca²⁺ Sensitiser',
+    concs: [
+      { label: '12.5 mg / 500 mL', amt: 12.5, vol: 500 },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: null, hardLimit: 0.2,
+    note: 'Haemodynamic effects persist 7–9 days post-infusion. Loading dose (6–12 mcg/kg over 10 min) is optional — omit if hypotensive.',
     ranges: [
-      { l: 'Starting infusion', v: '1–2 mg/min' },
-      { l: 'Maintenance', v: '0.5–2 mg/min' },
-      { l: 'Max cumulative dose', v: '300 mg' },
+      { l: 'Loading (optional)',       v: '6–12 mcg/kg over 10 min' },
+      { l: 'Maintenance',              v: '0.05–0.2 mcg/kg/min'     },
+      { l: 'Standard 24h infusion',   v: '0.1 mcg/kg/min'           },
     ]
   },
   {
-    id: 'rocuronium', name: 'Rocuronium', class: 'NMBA',
-    conc: { amt: 500, vol: 50, unit: 'mg' },
-    outputs: ['mg/kg/h','mcg/kg/min','mg/h'],
-    note: 'Neuromuscular blocker. Monitor with Train-of-Four (TOF 1–2 twitches target). Reversal: sugammadex 16 mg/kg. Ensure adequate sedation.',
+    id: 'milrinone', name: 'Milrinone', class: 'PDE-3 Inhibitor',
+    concs: [
+      { label: '20 mg / 100 mL', amt: 20, vol: 100 },
+    ],
+    unit: 'mg', outputs: ['mcg/kg/min'],
+    softLimit: 0.5, hardLimit: 1.5,
+    note: 'Inodilator — reduces afterload and improves CO. Dose-reduce in renal impairment. Loading dose optional: 50 mcg/kg over 10 min.',
     ranges: [
-      { l: 'RSI induction (bolus)', v: '1.2 mg/kg IV' },
-      { l: 'Maintenance infusion', v: '0.3–0.6 mg/kg/h' },
-      { l: 'ICU paralysis', v: '0.3–0.9 mg/kg/h' },
+      { l: 'Maintenance',            v: '0.375–0.75 mcg/kg/min'   },
+      { l: 'Loading (optional)',     v: '50 mcg/kg over 10 min'   },
+      { l: 'Renal adjustment',       v: 'Reduce per eGFR'         },
     ]
   },
   {
-    id: 'levothyroxine', name: 'Levothyroxine', class: 'Thyroid Hormone',
-    conc: { amt: 0.5, vol: 50, unit: 'mg' },
-    outputs: ['mcg/h','mcg/kg/h','mg/h'],
-    note: 'IV T4. 100 mcg IV ≈ 100 mcg oral. Used in myxoedema coma and organ donor management. Monitor TFTs closely.',
+    id: 'nicardipine', name: 'Nicardipine', class: 'Ca²⁺ Blocker',
+    concs: [
+      { label: '50 mg / 100 mL (central)',    amt: 50, vol: 100 },
+      { label: '50 mg / 250 mL (peripheral)', amt: 50, vol: 250 },
+    ],
+    unit: 'mg', outputs: ['mg/h'],
+    softLimit: null, hardLimit: 15,
+    note: 'Titratable IV calcium channel blocker. Indicated for hypertensive emergency, post-craniotomy, subarachnoid haemorrhage.',
     ranges: [
-      { l: 'Myxoedema coma loading', v: '200–400 mcg IV once' },
-      { l: 'Maintenance infusion', v: '50–100 mcg/day' },
-      { l: 'Donor management', v: '20 mcg bolus + 10 mcg/h' },
+      { l: 'Starting dose',    v: '5 mg/h'    },
+      { l: 'Titration range',  v: '5–15 mg/h' },
+      { l: 'Maximum',          v: '15 mg/h'   },
     ]
   },
+  // ── ANTICOAGULANT ───────────────────────────────────────────────
   {
     id: 'heparin', name: 'Heparin', class: 'Anticoagulant',
-    conc: { amt: 12500, vol: 50, unit: 'units' },
-    outputs: ['units/h','units/kg/h'],
-    isUnits: true,
+    concs: [
+      { label: '12,500 U / 50 mL',  amt: 12500, vol: 50  },
+      { label: '25,000 U / 100 mL', amt: 25000, vol: 100 },
+    ],
+    unit: 'units', isUnits: true, outputs: ['units/h'],
+    softLimit: 2000, hardLimit: 4000,
     note: 'Monitor aPTT every 6h. Target aPTT 60–100 sec (institution-specific). Adjust per weight-based protocol.',
     ranges: [
-      { l: 'Prophylaxis', v: '5 units/kg/h' },
-      { l: 'Therapeutic (DVT/PE)', v: '10–25 units/kg/h' },
-      { l: 'ECMO / cardiac surgery', v: '5–15 units/kg/h' },
+      { l: 'Prophylaxis',           v: '5 units/kg/h'    },
+      { l: 'Therapeutic (DVT/PE)',  v: '10–25 units/kg/h' },
+      { l: 'ECMO / cardiac surgery',v: '5–15 units/kg/h' },
+    ]
+  },
+  // ── NMBA ────────────────────────────────────────────────────────
+  {
+    id: 'rocuronium', name: 'Rocuronium', class: 'NMBA',
+    concs: [
+      { label: '250 mg / 50 mL', amt: 250, vol: 50 },
+    ],
+    unit: 'mg', outputs: ['mg/h'],
+    softLimit: 50, hardLimit: 150,
+    note: 'Neuromuscular blocker. Monitor with Train-of-Four (TOF 1–2 twitches target). Reversal: sugammadex 16 mg/kg. Ensure adequate sedation.',
+    ranges: [
+      { l: 'RSI induction (bolus)', v: '1.2 mg/kg IV'    },
+      { l: 'Maintenance infusion',  v: '0.3–0.6 mg/kg/h' },
+      { l: 'ICU paralysis',         v: '0.3–0.9 mg/kg/h' },
+    ]
+  },
+  // ── ENDOCRINE ───────────────────────────────────────────────────
+  {
+    id: 'levothyroxine', name: 'Levothyroxine', class: 'Thyroid Hormone',
+    concs: [
+      { label: '500 mcg / 250 mL', amt: 500, vol: 250 },
+    ],
+    unit: 'mcg', isMcg: true, outputs: ['mcg/min'],
+    softLimit: 200, hardLimit: 500,
+    note: 'IV T4. 100 mcg IV ≈ 100 mcg oral. Used in myxoedema coma and organ donor management. Monitor TFTs closely.',
+    ranges: [
+      { l: 'Myxoedema coma loading', v: '200–400 mcg IV once'     },
+      { l: 'Maintenance infusion',   v: '50–100 mcg/day'          },
+      { l: 'Donor management',       v: '20 mcg bolus + 10 mcg/h' },
     ]
   },
 ];
@@ -573,11 +692,10 @@ const DRUGS = [
 const wtUnit = {};
 DRUGS.forEach(d => { wtUnit[d.id] = 'kg'; });
 
-// BUILD
 const gridEl  = document.getElementById('drugGrid');
 const areaEl  = document.getElementById('calcArea');
 
-DRUGS.forEach((drug, i) => {
+DRUGS.forEach((drug) => {
   const btn = document.createElement('button');
   btn.className = 'drug-btn' + (drug.id === 'noradrenaline' ? ' active' : '');
   btn.dataset.id = drug.id;
@@ -593,12 +711,22 @@ DRUGS.forEach((drug, i) => {
 });
 
 function activate(id) {
-  document.querySelectorAll('.drug-btn').forEach(b  => b.classList.toggle('active',  b.dataset.id  === id));
-  document.querySelectorAll('.calc-wrap').forEach(w => w.classList.toggle('active',  w.id === 'wrap-' + id));
+  document.querySelectorAll('.drug-btn').forEach(b  => b.classList.toggle('active', b.dataset.id === id));
+  document.querySelectorAll('.calc-wrap').forEach(w => w.classList.toggle('active', w.id === 'wrap-' + id));
 }
 
 function buildHTML(d) {
-  const cu = d.isMcg ? 'mcg' : d.conc.unit;
+  const cu = d.isMcg ? 'mcg' : d.unit;
+  const concOptions = d.concs.map((c, i) =>
+    `<option value="${i}">${c.label}</option>`
+  ).join('');
+
+  const limitInfo = (d.softLimit || d.hardLimit) ? `
+    <div style="display:flex;gap:6px;margin-top:2px;">
+      ${d.softLimit != null ? `<span class="limit-badge soft">Soft limit: ${d.softLimit} ${d.outputs[0]}</span>` : ''}
+      ${d.hardLimit != null ? `<span class="limit-badge hard">Hard limit: ${d.hardLimit} ${d.outputs[0]}</span>` : ''}
+    </div>` : '';
+
   const ranges = d.ranges.map(r =>
     `<div class="range-row"><span class="rr-label">${r.l}</span><span class="rr-val">${r.v}</span></div>`
   ).join('');
@@ -609,17 +737,21 @@ function buildHTML(d) {
       <div><h2>${d.name}</h2><div class="ph-sub">${d.class}</div></div>
     </div>
     <div class="panel-body">
+
       <div class="field">
         <label>Concentration</label>
-        <div class="conc-row">
+        <select class="conc-select" id="${d.id}-cs" onchange="updateConc('${d.id}')">
+          ${concOptions}
+        </select>
+        <div class="conc-row" style="margin-top:6px;">
           <div class="input-wrap">
             <div class="iunit">${cu}</div>
-            <input type="number" id="${d.id}-ca" value="${d.conc.amt}" min="0" step="any">
+            <input type="number" id="${d.id}-ca" value="${d.concs[0].amt}" min="0" step="any">
           </div>
           <div class="conc-sep">in</div>
           <div class="input-wrap">
             <div class="iunit">mL</div>
-            <input type="number" id="${d.id}-cv" value="${d.conc.vol}" min="0" step="any">
+            <input type="number" id="${d.id}-cv" value="${d.concs[0].vol}" min="0" step="any">
           </div>
         </div>
       </div>
@@ -645,6 +777,8 @@ function buildHTML(d) {
         </div>
       </div>
 
+      ${limitInfo}
+
       <button class="reset-btn" onclick="resetDrug('${d.id}')">↺ Reset to defaults</button>
       <button class="calc-btn" onclick="calculate('${d.id}')">Calculate →</button>
       <div class="formula-box" id="${d.id}-fx"></div>
@@ -668,6 +802,13 @@ function buildHTML(d) {
   </div>`;
 }
 
+function updateConc(id) {
+  const d = DRUGS.find(x => x.id === id);
+  const idx = parseInt(document.getElementById(id+'-cs').value);
+  document.getElementById(id+'-ca').value = d.concs[idx].amt;
+  document.getElementById(id+'-cv').value = d.concs[idx].vol;
+}
+
 function setWt(id, unit) {
   wtUnit[id] = unit;
   document.getElementById(id+'-kg').classList.toggle('active', unit==='kg');
@@ -676,10 +817,11 @@ function setWt(id, unit) {
 
 function resetDrug(id) {
   const d = DRUGS.find(x => x.id === id);
-  document.getElementById(id+'-ca').value = d.conc.amt;
-  document.getElementById(id+'-cv').value = d.conc.vol;
+  document.getElementById(id+'-cs').value = 0;
+  document.getElementById(id+'-ca').value = d.concs[0].amt;
+  document.getElementById(id+'-cv').value = d.concs[0].vol;
   document.getElementById(id+'-rt').value = '';
-  document.getElementById(id+'-wt').value = '';
+  document.getElementById(id+'-wt').value = '80';
   document.getElementById(id+'-res').innerHTML =
     `<div class="result-empty">Enter values and click<br><strong style="color:var(--accent)">Calculate →</strong></div>`;
   const fx = document.getElementById(id+'-fx');
@@ -705,13 +847,8 @@ function calculate(id) {
     ? (wtUnit[id] === 'lb' ? rawW * 0.453592 : rawW)
     : null;
 
-  const concPerMl = ca / cv;              // native unit / mL
-  const nativePerH = concPerMl * rt;      // native unit / h
-
-  // Normalise everything to mg/h for calculations (except mcg-stored and units-stored)
-  // isMcg: dexmedetomidine stored in mcg → nativePerH is mcg/h
-  // isUnits: heparin stored in units → nativePerH is units/h
-  // isMg (fentanyl/remi): stored in mg but dosed in mcg → convert ×1000
+  const concPerMl = ca / cv;
+  const nativePerH = concPerMl * rt;
 
   const results = [];
 
@@ -719,25 +856,26 @@ function calculate(id) {
     let val = null, label = '';
 
     if (d.isUnits) {
-      if (out === 'units/h')    { val = nativePerH;                               label = 'Units per hour'; }
-      if (out === 'units/min')  { val = nativePerH / 60;                          label = 'Units per minute'; }
-      if (out === 'units/kg/h') { val = wKg ? nativePerH / wKg : null;           label = 'Units / kg / hour'; }
+      if (out === 'units/h')    { val = nativePerH;         label = 'Units per hour'; }
+      if (out === 'units/min')  { val = nativePerH / 60;    label = 'Units per minute'; }
+      if (out === 'units/kg/h') { val = wKg ? nativePerH / wKg : null; label = 'Units / kg / hour'; }
 
     } else if (d.isMcg) {
-      // nativePerH = mcg/h
-      if (out === 'mcg/h')    { val = nativePerH;                                label = 'Total dose / hour'; }
-      if (out === 'mcg/kg/h') { val = wKg ? nativePerH / wKg : null;            label = 'Dose / kg / hour'; }
+      const mcgPerH = nativePerH;
+      if (out === 'mcg/h')      { val = mcgPerH;                              label = 'Total dose / hour'; }
+      if (out === 'mcg/kg/h')   { val = wKg ? mcgPerH / wKg : null;          label = 'Dose / kg / hour'; }
+      if (out === 'mcg/min')    { val = mcgPerH / 60;                         label = 'Total dose / minute'; }
+      if (out === 'mcg/kg/min') { val = wKg ? mcgPerH / (wKg * 60) : null;   label = 'Dose / kg / minute'; }
 
     } else {
-      // mg-stored drugs (including isMg flag for fentanyl/remi where output is in mcg)
-      const mgPerH = nativePerH;          // mg/h
-
-      if (out === 'mg/h')       { val = mgPerH;                                             label = 'Total dose / hour'; }
-      if (out === 'mg/kg/h')    { val = wKg ? mgPerH / wKg : null;                         label = 'Dose / kg / hour'; }
-      if (out === 'mcg/h')      { val = mgPerH * 1000;                                     label = 'Total dose / hour'; }
-      if (out === 'mcg/kg/h')   { val = wKg ? (mgPerH * 1000) / wKg : null;               label = 'Dose / kg / hour'; }
-      if (out === 'mcg/kg/min') { val = wKg ? (mgPerH * 1000) / (wKg * 60) : null;        label = 'Dose / kg / minute'; }
-      if (out === 'mcg/min')    { val = (mgPerH * 1000) / 60;                              label = 'Total dose / minute'; }
+      const mgPerH = nativePerH;
+      if (out === 'mg/h')       { val = mgPerH;                                          label = 'Total dose / hour'; }
+      if (out === 'mg/min')     { val = mgPerH / 60;                                     label = 'Total dose / minute'; }
+      if (out === 'mg/kg/h')    { val = wKg ? mgPerH / wKg : null;                      label = 'Dose / kg / hour'; }
+      if (out === 'mcg/h')      { val = mgPerH * 1000;                                   label = 'Total dose / hour'; }
+      if (out === 'mcg/kg/h')   { val = wKg ? (mgPerH * 1000) / wKg : null;             label = 'Dose / kg / hour'; }
+      if (out === 'mcg/kg/min') { val = wKg ? (mgPerH * 1000) / (wKg * 60) : null;     label = 'Dose / kg / minute'; }
+      if (out === 'mcg/min')    { val = (mgPerH * 1000) / 60;                            label = 'Total dose / minute'; }
     }
 
     const needsWt = out.includes('kg') && wKg === null;
@@ -752,8 +890,24 @@ function calculate(id) {
         <div class="ri-unit">${r.unit}</div>
       </div>`;
     }
-    return `<div class="result-item">
-      <div><div class="ri-label">${r.label}</div><div class="ri-value">${fmt(r.val)}</div></div>
+    // Check limits
+    const v = r.val;
+    const isSoft = d.softLimit != null && v > d.softLimit;
+    const isHard = d.hardLimit != null && v > d.hardLimit;
+    const borderColor = isHard ? 'var(--red)' : isSoft ? 'var(--yellow)' : 'var(--border)';
+    const valueColor  = isHard ? 'var(--red)' : isSoft ? 'var(--yellow)' : 'var(--accent)';
+    const limitTag    = isHard
+      ? `<div style="font-size:10px;color:var(--red);margin-top:3px;font-weight:600;">⛔ HARD LIMIT EXCEEDED</div>`
+      : isSoft
+      ? `<div style="font-size:10px;color:var(--yellow);margin-top:3px;font-weight:600;">⚠ Soft limit exceeded</div>`
+      : '';
+
+    return `<div class="result-item" style="border-color:${borderColor}">
+      <div>
+        <div class="ri-label">${r.label}</div>
+        <div class="ri-value" style="color:${valueColor}">${fmt(v)}</div>
+        ${limitTag}
+      </div>
       <div class="ri-unit">${r.unit}</div>
     </div>`;
   }).join('');
@@ -779,5 +933,6 @@ function fmt(n) {
   return n.toExponential(2);
 }
 </script>
+
 </body>
 </html>
