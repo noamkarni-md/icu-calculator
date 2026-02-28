@@ -335,6 +335,42 @@
     border: 1px solid rgba(248,113,113,0.3);
     color: var(--red);
   }
+
+  /* MODE TOGGLE */
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 2px;
+  }
+  .mode-toggle button {
+    flex: 1; background: var(--bg); border: none;
+    padding: 9px 0; color: var(--text-muted);
+    cursor: pointer; font-family: var(--sans);
+    font-size: 12px; font-weight: 600;
+    transition: all 0.15s; letter-spacing: 0.2px;
+  }
+  .mode-toggle button + button { border-left: 1px solid var(--border); }
+  .mode-toggle button.active { background: var(--accent-glow); color: var(--accent); }
+
+  .rev-btn {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border: none; border-radius: 7px;
+    padding: 11px; color: #fff;
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    cursor: pointer; width: 100%;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: 2px;
+  }
+  .rev-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .rev-btn:active { transform: translateY(0); }
+
+  .result-item.rev-result {
+    border-color: #6366f1;
+    background: rgba(99,102,241,0.06);
+  }
+  .result-item.rev-result .ri-value { color: #818cf8; }
 </style>
 </head>
 <body>
@@ -484,6 +520,7 @@ const DRUGS = [
     id: 'ketamine', name: 'Ketamine', class: 'Dissociative',
     concs: [
       { label: '500 mg / 50 mL',   amt: 500,  vol: 50  },
+      { label: '1000 mg / 50 mL',  amt: 1000, vol: 50  },
       { label: '500 mg / 100 mL',  amt: 500,  vol: 100 },
       { label: '1000 mg / 100 mL', amt: 1000, vol: 100 },
     ],
@@ -734,6 +771,11 @@ function buildHTML(d) {
     </div>
     <div class="panel-body">
 
+      <div class="mode-toggle">
+        <button id="${d.id}-mode-fwd" class="active" onclick="setMode('${d.id}','fwd')">mL/h &#8594; Dose</button>
+        <button id="${d.id}-mode-rev" onclick="setMode('${d.id}','rev')">Dose &#8594; mL/h</button>
+      </div>
+
       <div class="field">
         <label>Concentration</label>
         <select class="conc-select" id="${d.id}-cs" onchange="updateConc('${d.id}')">
@@ -753,14 +795,6 @@ function buildHTML(d) {
       </div>
 
       <div class="field">
-        <label>Infusion Rate</label>
-        <div class="input-wrap">
-          <div class="iunit">mL/h</div>
-          <input type="number" id="${d.id}-rt" placeholder="e.g. 5" min="0" step="any">
-        </div>
-      </div>
-
-      <div class="field">
         <label>Patient Weight</label>
         <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
           <div class="input-wrap">
@@ -775,25 +809,53 @@ function buildHTML(d) {
 
       ${limitInfo}
 
-      <button class="reset-btn" onclick="resetDrug('${d.id}')">↺ Reset to defaults</button>
-      <button class="calc-btn" onclick="calculate('${d.id}')">Calculate →</button>
+      <!-- FORWARD MODE -->
+      <div id="${d.id}-fwd-section">
+        <div class="field">
+          <label>Infusion Rate</label>
+          <div class="input-wrap">
+            <div class="iunit">mL/h</div>
+            <input type="number" id="${d.id}-rt" placeholder="e.g. 5" min="0" step="any">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+          <button class="reset-btn" onclick="resetDrug('${d.id}')">&#8635; Reset to defaults</button>
+          <button class="calc-btn" onclick="calculate('${d.id}')">Calculate &#8594;</button>
+        </div>
+      </div>
+
+      <!-- REVERSE MODE -->
+      <div id="${d.id}-rev-section" style="display:none;">
+        <div class="field">
+          <label>Target Dose (${d.outputs[0]})</label>
+          <div class="input-wrap">
+            <div class="iunit">${d.outputs[0]}</div>
+            <input type="number" id="${d.id}-rd" placeholder="e.g. 0.1" min="0" step="any">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+          <button class="reset-btn" onclick="resetDrug('${d.id}')">&#8635; Reset to defaults</button>
+          <button class="rev-btn" onclick="calcReverse('${d.id}')">&#8592; Calculate mL/h</button>
+        </div>
+      </div>
+
       <div class="formula-box" id="${d.id}-fx"></div>
     </div>
   </div>
 
   <div class="panel">
     <div class="panel-head">
-      <div><h2>Results</h2><div class="ph-sub">mL/h → dose conversion</div></div>
+      <div><h2 id="${d.id}-res-title">Results</h2><div class="ph-sub" id="${d.id}-res-sub">mL/h &#8594; dose</div></div>
     </div>
     <div class="panel-body">
       <div class="results-list" id="${d.id}-res">
-        <div class="result-empty">Enter values and click<br><strong style="color:var(--accent)">Calculate →</strong></div>
+        <div class="result-empty">Select a mode and click Calculate</div>
       </div>
-
       ${d.note ? `<div class="drug-note"><strong>Note:</strong> ${d.note}</div>` : ''}
     </div>
   </div>`;
 }
+
 
 function updateConc(id) {
   const d = DRUGS.find(x => x.id === id);
@@ -808,17 +870,137 @@ function setWt(id, unit) {
   document.getElementById(id+'-lb').classList.toggle('active', unit==='lb');
 }
 
+const drugMode = {};
+
+function setMode(id, mode) {
+  drugMode[id] = mode;
+  const isFwd = mode === 'fwd';
+  document.getElementById(id+'-mode-fwd').classList.toggle('active', isFwd);
+  document.getElementById(id+'-mode-rev').classList.toggle('active', !isFwd);
+  document.getElementById(id+'-fwd-section').style.display = isFwd ? '' : 'none';
+  document.getElementById(id+'-rev-section').style.display = isFwd ? 'none' : '';
+  document.getElementById(id+'-res-title').textContent = isFwd ? 'Results' : 'Infusion Rate';
+  document.getElementById(id+'-res-sub').innerHTML = isFwd ? 'mL/h &#8594; dose' : 'dose &#8594; mL/h';
+  document.getElementById(id+'-res').innerHTML =
+    '<div class="result-empty">Enter values and click Calculate</div>';
+  document.getElementById(id+'-fx').style.display = 'none';
+}
+
 function resetDrug(id) {
   const d = DRUGS.find(x => x.id === id);
   document.getElementById(id+'-cs').value = 0;
   document.getElementById(id+'-ca').value = d.concs[0].amt;
   document.getElementById(id+'-cv').value = d.concs[0].vol;
-  document.getElementById(id+'-rt').value = '';
+  const rtEl = document.getElementById(id+'-rt');
+  if (rtEl) rtEl.value = '';
+  const rdEl = document.getElementById(id+'-rd');
+  if (rdEl) rdEl.value = '';
   document.getElementById(id+'-wt').value = '80';
   document.getElementById(id+'-res').innerHTML =
-    `<div class="result-empty">Enter values and click<br><strong style="color:var(--accent)">Calculate →</strong></div>`;
-  const fx = document.getElementById(id+'-fx');
-  fx.style.display = 'none';
+    '<div class="result-empty">Enter values and click Calculate</div>';
+  document.getElementById(id+'-fx').style.display = 'none';
+}
+
+function calcReverse(id) {
+  const d     = DRUGS.find(x => x.id === id);
+  const ca    = parseFloat(document.getElementById(id+'-ca').value);
+  const cv    = parseFloat(document.getElementById(id+'-cv').value);
+  const rawW  = parseFloat(document.getElementById(id+'-wt').value);
+  const dose  = parseFloat(document.getElementById(id+'-rd').value);
+  const resEl = document.getElementById(id+'-res');
+  const fxEl  = document.getElementById(id+'-fx');
+
+  if (isNaN(ca) || isNaN(cv) || cv === 0 || isNaN(dose)) {
+    resEl.innerHTML = '<div class="result-empty" style="color:var(--red)">⚠ Please enter concentration and target dose.</div>';
+    fxEl.style.display = 'none';
+    return;
+  }
+
+  const wKg = (!isNaN(rawW) && rawW > 0)
+    ? (wtUnit[id] === 'lb' ? rawW * 0.453592 : rawW)
+    : null;
+
+  const out = d.outputs[0]; // primary output unit
+  const concPerMl = ca / cv; // native/mL
+  let mlPerH = null;
+  let stepDesc = '';
+
+  // Convert dose (in output unit) to native/h, then to mL/h
+  // native = mg or mcg (isMcg) or units (isUnits)
+
+  if (d.isUnits) {
+    // units/h → mL/h
+    let nativePerH = dose; // units/h
+    if (out === 'units/min') nativePerH = dose * 60;
+    mlPerH = nativePerH / concPerMl;
+    stepDesc = dose + ' ' + out + ' ÷ ' + fmt(concPerMl) + ' units/mL';
+
+  } else if (d.isMcg) {
+    // mcg-stored drug (dexmed): output in mcg/kg/h or mcg/h
+    let mcgPerH = dose;
+    if (out === 'mcg/kg/h') {
+      if (!wKg) { resEl.innerHTML = '<div class="result-empty" style="color:var(--red)">⚠ Enter patient weight.</div>'; return; }
+      mcgPerH = dose * wKg;
+      stepDesc = dose + ' mcg/kg/h × ' + fmt(wKg) + ' kg = ' + fmt(mcgPerH) + ' mcg/h';
+    } else if (out === 'mcg/kg/min') {
+      if (!wKg) { resEl.innerHTML = '<div class="result-empty" style="color:var(--red)">⚠ Enter patient weight.</div>'; return; }
+      mcgPerH = dose * wKg * 60;
+      stepDesc = dose + ' mcg/kg/min × ' + fmt(wKg) + ' kg × 60 = ' + fmt(mcgPerH) + ' mcg/h';
+    } else if (out === 'mcg/min') {
+      mcgPerH = dose * 60;
+      stepDesc = dose + ' mcg/min × 60 = ' + fmt(mcgPerH) + ' mcg/h';
+    } else {
+      stepDesc = dose + ' ' + out;
+    }
+    // concPerMl is in mcg/mL
+    mlPerH = mcgPerH / concPerMl;
+
+  } else {
+    // mg-stored drugs
+    let mgPerH = dose; // assume output is mg/h by default
+    if (out === 'mcg/kg/min') {
+      if (!wKg) { resEl.innerHTML = '<div class="result-empty" style="color:var(--red)">⚠ Enter patient weight.</div>'; return; }
+      mgPerH = (dose * wKg * 60) / 1000;
+      stepDesc = dose + ' mcg/kg/min × ' + fmt(wKg) + ' kg × 60 ÷ 1000 = ' + fmt(mgPerH) + ' mg/h';
+    } else if (out === 'mcg/kg/h') {
+      if (!wKg) { resEl.innerHTML = '<div class="result-empty" style="color:var(--red)">⚠ Enter patient weight.</div>'; return; }
+      mgPerH = (dose * wKg) / 1000;
+      stepDesc = dose + ' mcg/kg/h × ' + fmt(wKg) + ' kg ÷ 1000 = ' + fmt(mgPerH) + ' mg/h';
+    } else if (out === 'mcg/h') {
+      mgPerH = dose / 1000;
+      stepDesc = dose + ' mcg/h ÷ 1000 = ' + fmt(mgPerH) + ' mg/h';
+    } else if (out === 'mcg/min') {
+      mgPerH = (dose * 60) / 1000;
+      stepDesc = dose + ' mcg/min × 60 ÷ 1000 = ' + fmt(mgPerH) + ' mg/h';
+    } else if (out === 'mg/kg/h') {
+      if (!wKg) { resEl.innerHTML = '<div class="result-empty" style="color:var(--red)">⚠ Enter patient weight.</div>'; return; }
+      mgPerH = dose * wKg;
+      stepDesc = dose + ' mg/kg/h × ' + fmt(wKg) + ' kg = ' + fmt(mgPerH) + ' mg/h';
+    } else if (out === 'mg/min') {
+      mgPerH = dose * 60;
+      stepDesc = dose + ' mg/min × 60 = ' + fmt(mgPerH) + ' mg/h';
+    } else if (out === 'mg/h') {
+      stepDesc = dose + ' mg/h';
+    }
+    mlPerH = mgPerH / concPerMl;
+  }
+
+  const cu = d.isMcg ? 'mcg' : (d.isUnits ? 'units' : 'mg');
+  resEl.innerHTML = `<div class="result-item rev-result">
+    <div>
+      <div class="ri-label">Infusion Rate Required</div>
+      <div class="ri-value">${fmt(mlPerH)}</div>
+    </div>
+    <div class="ri-unit">mL/h</div>
+  </div>`;
+
+  fxEl.style.display = 'block';
+  fxEl.innerHTML =
+    '<span class="c">// Reverse calculation</span>\n' +
+    '<span class="v">Target: </span>' + dose + ' ' + out + '\n' +
+    (stepDesc ? '<span class="v">Step:   </span>' + stepDesc + '\n' : '') +
+    '<span class="v">Conc:   </span>' + fmt(concPerMl) + ' ' + cu + '/mL\n' +
+    '<span class="v">Rate:   </span>' + fmt(mlPerH) + ' mL/h';
 }
 
 function calculate(id) {
